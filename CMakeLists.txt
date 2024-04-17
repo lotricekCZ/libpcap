@@ -1,27 +1,27 @@
 if(WIN32)
-    #
-    # We need 3.12 or later, so that we can set policy CMP0074; see
-    # below.
-    #
-    cmake_minimum_required(VERSION 3.12)
+#
+# We need 3.12 or later, so that we can set policy CMP0074; see
+# below.
+#
+cmake_minimum_required(VERSION 3.12)
 else(WIN32)
-    #
-    # For now:
-    #
-    #  if this is a version of CMake less than 3.5, require only
-    #  2.8.12, just in case somebody is configuring with CMake
-    #  on a "long-term support" version # of some OS and that
-    #  version supplies an older version of CMake;
-    #
-    #  otherwise, require 3.5, so we don't get messages warning
-    #  that support for versions of CMake lower than 3.5 is
-    #  deprecated.
-    #
-    if(CMAKE_VERSION VERSION_LESS "3.5")
-        cmake_minimum_required(VERSION 2.8.12)
-    else()
-        cmake_minimum_required(VERSION 3.5)
-    endif()
+#
+# For now:
+#
+#  if this is a version of CMake less than 3.5, require only
+#  2.8.12, just in case somebody is configuring with CMake
+#  on a "long-term support" version # of some OS and that
+#  version supplies an older version of CMake;
+#
+#  otherwise, require 3.5, so we don't get messages warning
+#  that support for versions of CMake lower than 3.5 is
+#  deprecated.
+#
+if(CMAKE_VERSION VERSION_LESS "3.5")
+cmake_minimum_required(VERSION 2.8.12)
+else()
+cmake_minimum_required(VERSION 3.5)
+endif()
 endif(WIN32)
 
 #
@@ -34,10 +34,10 @@ endif(WIN32)
 # See https://cmake.org/cmake/help/latest/policy/CMP0042.html
 #
 if (NOT DEFINED CMAKE_MACOSX_RPATH)
-    set(CMAKE_MACOSX_RPATH FALSE)
+set(CMAKE_MACOSX_RPATH FALSE)
 endif()
 if(POLICY CMP0042)
-    cmake_policy(SET CMP0042 NEW)
+cmake_policy(SET CMP0042 NEW)
 endif()
 
 #
@@ -46,7 +46,7 @@ endif()
 # VERSIONS OF CMAKE EXPECT BY DEFAULT, DON'T WASTE OUR TIME WITH NOISE.
 #
 if(POLICY CMP0054)
-    cmake_policy(SET CMP0054 NEW)
+cmake_policy(SET CMP0054 NEW)
 endif()
 
 #
@@ -56,7 +56,7 @@ endif()
 # or WinPcap SDK.
 #
 if(POLICY CMP0074)
-    cmake_policy(SET CMP0074 NEW)
+cmake_policy(SET CMP0074 NEW)
 endif()
 
 #
@@ -65,10 +65,11 @@ endif()
 # infiniband/verbs.h for the reason.
 #
 if(POLICY CMP0075)
-    cmake_policy(SET CMP0075 NEW)
+cmake_policy(SET CMP0075 NEW)
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
+set(CMAKE_LIBPCAP_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(CMAKE_MODULE_PATH ${CMAKE_LIBPCAP_SOURCE_DIR}/cmake/Modules)
 
 #
 # We explicitly indicate what languages are used in libpcap to avoid
@@ -104,12 +105,6 @@ set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules)
 # will ensue.
 #
 project(pcap C)
-
-#
-# Export the size of void * as SIZEOF_VOID_P so that it can be
-# tested with #if.
-#
-set(SIZEOF_VOID_P "${CMAKE_SIZEOF_VOID_P}")
 
 #
 # Setting CMAKE_MACOSX_RPATH to FALSE causes the installed
@@ -529,7 +524,7 @@ option(DISABLE_RDMA "Disable RDMA sniffing support" OFF)
 option(DISABLE_DAG "Disable Endace DAG card support" OFF)
 
 option(DISABLE_SEPTEL "Disable Septel card support" OFF)
-set(SEPTEL_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../septel" CACHE PATH "Path to directory with include and lib subdirectories for Septel API")
+set(SEPTEL_ROOT "${CMAKE_LIBPCAP_SOURCE_DIR}/../septel" CACHE PATH "Path to directory with include and lib subdirectories for Septel API")
 
 option(DISABLE_SNF "Disable Myricom SNF support" OFF)
 
@@ -548,11 +543,15 @@ option(YYDEBUG "Build parser debugging code" OFF)
 # Get, parse, format and set pcap's version string from [pcap_root]/VERSION
 # for later use.
 
+set(pcap_SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(CMAKE_HOME_DIRECTORY ${CMAKE_CURRENT_LIST_DIR})
 # Get MAJOR, MINOR, PATCH & SUFFIX
 file(STRINGS ${pcap_SOURCE_DIR}/VERSION
-    PACKAGE_VERSION
-    LIMIT_COUNT 1 # Read only the first line
+PACKAGE_VERSION
+LIMIT_COUNT 1 # Read only the first line
 )
+message( STATUS "Contents of ${pcap_SOURCE_DIR}/VERSION: ${PACKAGE_VERSION}" )
+message( STATUS "${CMAKE_HOME_DIRECTORY}" )
 
 # Get "just" MAJOR
 string(REGEX MATCH "^([0-9]+)" PACKAGE_VERSION_MAJOR "${PACKAGE_VERSION}")
@@ -576,6 +575,8 @@ set(PACKAGE_STRING "${LIBRARY_NAME} ${PACKAGE_VERSION}")
 # Project settings
 ######################################
 
+add_definitions(-DHAVE_CONFIG_H)
+message(STATUS "BINARY DIR: ${CMAKE_CURRENT_BINARY_DIR}")
 include_directories(
     ${CMAKE_CURRENT_BINARY_DIR}
     ${pcap_SOURCE_DIR}
@@ -653,10 +654,13 @@ include(CheckTypeSize)
 #
 # Header files.
 #
+check_include_file(inttypes.h HAVE_INTTYPES_H)
+check_include_file(stdint.h HAVE_STDINT_H)
 check_include_file(unistd.h HAVE_UNISTD_H)
 if(NOT HAVE_UNISTD_H)
     add_definitions(-DYY_NO_UNISTD_H)
 endif(NOT HAVE_UNISTD_H)
+check_include_file(bitypes.h HAVE_SYS_BITYPES_H)
 if(NOT WIN32)
     check_include_file(sys/ioccom.h HAVE_SYS_IOCCOM_H)
     check_include_file(sys/sockio.h HAVE_SYS_SOCKIO_H)
@@ -705,6 +709,7 @@ main(void)
 #
 # Now check for various system functions.
 #
+check_function_exists(strerror HAVE_STRERROR)
 check_function_exists(strerror_r HAVE_STRERROR_R)
 if(HAVE_STRERROR_R)
     #
@@ -736,55 +741,18 @@ else(HAVE_STRERROR_R)
 endif(HAVE_STRERROR_R)
 
 #
-# Require a proof of suitable snprintf(3), same as in Autoconf.
+# Make sure we have vsnprintf() and snprintf(); we require them.
+# We use check_symbol_exists(), as they aren't necessarily external
+# functions - in Visual Studio, for example, they're inline functions
+# calling a common external function.
 #
-include(CheckCSourceRuns)
-check_c_source_runs("
-#include <stdio.h>
-#include <string.h>
-#include <inttypes.h>
-#include <sys/types.h>
-
-int main()
-{
-  char buf[100];
-  uint64_t t = (uint64_t)1 << 32;
-
-  snprintf(buf, sizeof(buf), \"%zu\", sizeof(buf));
-  if (strncmp(buf, \"100\", sizeof(buf)))
-    return 1;
-
-  snprintf(buf, sizeof(buf), \"%zd\", -sizeof(buf));
-  if (strncmp(buf, \"-100\", sizeof(buf)))
-    return 2;
-
-  snprintf(buf, sizeof(buf), \"%\" PRId64, -t);
-  if (strncmp(buf, \"-4294967296\", sizeof(buf)))
-    return 3;
-
-  snprintf(buf, sizeof(buf), \"0o%\" PRIo64, t);
-  if (strncmp(buf, \"0o40000000000\", sizeof(buf)))
-    return 4;
-
-  snprintf(buf, sizeof(buf), \"0x%\" PRIx64, t);
-  if (strncmp(buf, \"0x100000000\", sizeof(buf)))
-    return 5;
-
-  snprintf(buf, sizeof(buf), \"%\" PRIu64, t);
-  if (strncmp(buf, \"4294967296\", sizeof(buf)))
-    return 6;
-
-  return 0;
-}
-
-"
-    SUITABLE_SNPRINTF
-)
-if(NOT SUITABLE_SNPRINTF)
-    message(FATAL_ERROR
-"The snprintf(3) implementation in this libc is not suitable,
-libpcap would not work correctly even if it managed to compile."
-    )
+check_symbol_exists(vsnprintf "stdio.h" HAVE_VSNPRINTF)
+if(NOT HAVE_VSNPRINTF)
+    message(FATAL_ERROR "vsnprintf() is required but wasn't found")
+endif(NOT HAVE_VSNPRINTF)
+check_symbol_exists(snprintf "stdio.h" HAVE_SNPRINTF)
+if(NOT HAVE_SNPRINTF)
+    message(FATAL_ERROR "snprintf() is required but wasn't found")
 endif()
 
 check_function_exists(strlcpy HAVE_STRLCPY)
@@ -962,7 +930,7 @@ endif(WIN32)
 
 #
 # Check for reentrant versions of getnetbyname_r(), as provided by
-# Linux (glibc), Solaris, and AIX (with three different APIs!).
+# Linux (glibc), Solaris/IRIX, and AIX (with three different APIs!).
 # If we don't find one, we just use getnetbyname(), which uses
 # thread-specific data on many platforms, but doesn't use it on
 # NetBSD or OpenBSD, and may not use it on older versions of other
@@ -1005,8 +973,8 @@ main(void)
     return getnetbyname_r((const char *)0, &netent_buf, buf, (int)sizeof buf) != NULL;
 }
 "
-            HAVE_SOLARIS_GETNETBYNAME_R)
-        if(NOT HAVE_SOLARIS_GETNETBYNAME_R)
+            HAVE_SOLARIS_IRIX_GETNETBYNAME_R)
+        if(NOT HAVE_SOLARIS_IRIX_GETNETBYNAME_R)
             check_c_source_compiles(
 "#include <netdb.h>
 
@@ -1020,14 +988,14 @@ main(void)
 }
 "
                 HAVE_AIX_GETNETBYNAME_R)
-        endif(NOT HAVE_SOLARIS_GETNETBYNAME_R)
+        endif(NOT HAVE_SOLARIS_IRIX_GETNETBYNAME_R)
     endif(NOT HAVE_LINUX_GETNETBYNAME_R)
 endif(NETDB_H_DECLARES_GETNETBYNAME_R)
 cmake_pop_check_state()
 
 #
 # Check for reentrant versions of getprotobyname_r(), as provided by
-# Linux (glibc), Solaris, and AIX (with three different APIs!).
+# Linux (glibc), Solaris/IRIX, and AIX (with three different APIs!).
 # If we don't find one, we just use getprotobyname(), which uses
 # thread-specific data on many platforms, but doesn't use it on
 # NetBSD or OpenBSD, and may not use it on older versions of other
@@ -1069,8 +1037,8 @@ main(void)
     return getprotobyname_r((const char *)0, &protoent_buf, buf, (int)sizeof buf) != NULL;
 }
 "
-            HAVE_SOLARIS_GETPROTOBYNAME_R)
-        if(NOT HAVE_SOLARIS_GETPROTOBYNAME_R)
+            HAVE_SOLARIS_IRIX_GETPROTOBYNAME_R)
+        if(NOT HAVE_SOLARIS_IRIX_GETPROTOBYNAME_R)
             check_c_source_compiles(
 "#include <netdb.h>
 
@@ -1084,7 +1052,7 @@ main(void)
 }
 "
                 HAVE_AIX_GETPROTOBYNAME_R)
-        endif(NOT HAVE_SOLARIS_GETPROTOBYNAME_R)
+        endif(NOT HAVE_SOLARIS_IRIX_GETPROTOBYNAME_R)
     endif(NOT HAVE_LINUX_GETPROTOBYNAME_R)
 endif(NETDB_H_DECLARES_GETPROTOBYNAME_R)
 cmake_pop_check_state()
@@ -1102,6 +1070,7 @@ if(WIN32)
 else(WIN32)
     set(CMAKE_EXTRA_INCLUDE_FILES unistd.h sys/socket.h)
 endif(WIN32)
+check_type_size("struct sockaddr_storage" STRUCT_SOCKADDR_STORAGE)
 check_type_size("socklen_t" SOCKLEN_T)
 cmake_pop_check_state()
 
@@ -1113,6 +1082,20 @@ if(WIN32)
 else(WIN32)
     check_struct_has_member("struct sockaddr" sa_len sys/socket.h HAVE_STRUCT_SOCKADDR_SA_LEN)
 endif(WIN32)
+
+#
+# Do we have ffs(), and is it declared in <strings.h>?
+#
+check_function_exists(ffs HAVE_FFS)
+if(HAVE_FFS)
+    #
+    # OK, we have ffs().  Is it declared in <strings.h>?
+    #
+    # This test fails if we don't have <strings.h> or if we do
+    # but it doesn't declare ffs().
+    #
+    check_symbol_exists(ffs strings.h STRINGS_H_DECLARES_FFS)
+endif()
 
 #
 # This requires the libraries that we require, as ether_hostton might be
@@ -1268,14 +1251,6 @@ if(NOT WIN32)
     add_definitions(${FSEEKO_DEFINITIONS})
   endif()
 endif()
-
-#
-# Find the size of time_t.
-#
-cmake_push_check_state()
-set(CMAKE_EXTRA_INCLUDE_FILES time.h)
-check_type_size("time_t" SIZEOF_TIME_T)
-cmake_pop_check_state()
 
 if(INET6)
     message(STATUS "Support IPv6")
@@ -1779,20 +1754,20 @@ endif()
 ######################################
 
 set(PROJECT_SOURCE_LIST_C
-    bpf_dump.c
-    bpf_filter.c
-    bpf_image.c
-    etherent.c
-    fmtutils.c
-    gencode.c
-    nametoaddr.c
-    optimize.c
-    pcap-common.c
-    pcap-util.c
-    pcap.c
-    savefile.c
-    sf-pcapng.c
-    sf-pcap.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/bpf_dump.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/bpf_filter.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/bpf_image.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/etherent.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/fmtutils.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/gencode.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/nametoaddr.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/optimize.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap-common.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap-util.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/savefile.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/sf-pcapng.c
+    ${CMAKE_LIBPCAP_SOURCE_DIR}/sf-pcap.c
 )
 
 if(WIN32)
@@ -1915,10 +1890,14 @@ else()
                 check_symbol_exists(BIOCSETIF "sys/types.h;sys/time.h;sys/ioctl.h;sys/socket.h;net/bpf.h;net/if.h" BPF_H_DEFINES_BIOCSETIF)
             endif(HAVE_SYS_IOCCOM_H)
         endif(HAVE_NET_BPF_H)
+        check_include_file(net/pfilt.h HAVE_NET_PFILT_H)
+        check_include_file(net/enet.h HAVE_NET_ENET_H)
+        check_include_file(net/nit.h HAVE_NET_NIT_H)
+        check_include_file(sys/net/nit.h HAVE_SYS_NET_NIT_H)
         check_include_file(linux/socket.h HAVE_LINUX_SOCKET_H)
+        check_include_file(net/raw.h HAVE_NET_RAW_H)
         check_include_file(sys/dlpi.h HAVE_SYS_DLPI_H)
         check_include_file(config/HaikuConfig.h HAVE_CONFIG_HAIKUCONFIG_H)
-        check_include_file(hurd.h HAVE_HURD_H)
 
         if(BPF_H_DEFINES_BIOCSETIF)
             #
@@ -1932,6 +1911,31 @@ else()
             # No prizes for guessing this one.
             #
             set(PCAP_TYPE linux)
+        elseif(HAVE_NET_PFILT_H)
+            #
+            # DEC OSF/1, Digital UNIX, Tru64 UNIX
+            #
+            set(PCAP_TYPE pf)
+        elseif(HAVE_NET_ENET_H)
+            #
+            # Stanford Enetfilter.
+            #
+            set(PCAP_TYPE enet)
+        elseif(HAVE_NET_NIT_H)
+            #
+            # SunOS 4.x STREAMS NIT.
+            #
+            set(PCAP_TYPE snit)
+        elseif(HAVE_SYS_NET_NIT_H)
+            #
+            # Pre-SunOS 4.x non-STREAMS NIT.
+            #
+            set(PCAP_TYPE nit)
+        elseif(HAVE_NET_RAW_H)
+            #
+            # IRIX snoop.
+            #
+            set(PCAP_TYPE snoop)
         elseif(HAVE_SYS_DLPI_H)
             #
             # DLPI on pre-Solaris 11 SunOS 5, HP-UX, possibly others.
@@ -1942,11 +1946,6 @@ else()
             # Haiku.
             #
             set(PCAP_TYPE haiku)
-        elseif(HAVE_HURD_H)
-            #
-            # Hurd.
-            #
-            set(PCAP_TYPE hurd)
         else()
             #
             # We don't have any capture type we know about.
@@ -1986,7 +1985,7 @@ else(WIN32)
         #
         # Needed for common functions used by pcap-[dlpi,libdlpi].c
         #
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} dlpisubs.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/dlpisubs.c)
 
         #
         # Checks for some header files.
@@ -2128,15 +2127,10 @@ else(WIN32)
             message(STATUS "Checking whether the Solaris \"any\" device is supported - not supported")
         endif()
     elseif(PCAP_TYPE STREQUAL "haiku")
-        set(PCAP_SRC pcap-${PCAP_TYPE}.c)
-    elseif(PCAP_TYPE STREQUAL "hurd")
         #
         # Check for some headers just in case.
         #
-        set(PCAP_LINK_LIBRARIES ${PCAP_LINK_LIBRARIES} rt)
-        set(LIBS "${LIBS} -lrt")
-        set(LIBS_STATIC "${LIBS_STATIC} -lrt")
-        set(LIBS_PRIVATE "${LIBS_PRIVATE} -lrt")
+        check_include_files("net/if.h;net/if_dl.h;net/if_types.h" HAVE_NET_IF_TYPES_H)
         set(PCAP_SRC pcap-${PCAP_TYPE}.c)
     elseif(PCAP_TYPE STREQUAL "null")
     else()
@@ -2145,8 +2139,11 @@ else(WIN32)
 endif(WIN32)
 
 if(NOT DEFINED PCAP_SRC)
-set(PCAP_SRC pcap-${PCAP_TYPE}.c)
+set(PCAP_SRC ${pcap_SOURCE_DIR}/pcap-${PCAP_TYPE}.c)
 endif()
+
+message(STATUS "TYPE: pcap-${PCAP_TYPE}.c")
+message(STATUS "TYPE: ${PCAP_SRC}")
 
 set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${PCAP_SRC})
 
@@ -2244,7 +2241,7 @@ if(NOT WIN32)
             endif()
         endif()
         message(STATUS "Find-interfaces mechanism type: ${FINDALLDEVS_TYPE}")
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} fad-${FINDALLDEVS_TYPE}.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/fad-${FINDALLDEVS_TYPE}.c)
     endif()
 endif()
 
@@ -2264,7 +2261,7 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     # Check for usbmon USB sniffing support.
     if(NOT DISABLE_LINUX_USBMON)
         set(PCAP_SUPPORT_LINUX_USBMON TRUE)
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-usb-linux.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-usb-linux.c)
         #
         # Do we have a version of <linux/compiler.h> available?
         # If so, we might need it for <linux/usbdevice_fs.h>.
@@ -2322,7 +2319,7 @@ main(void)
 "
         PCAP_SUPPORT_NETFILTER)
     if(PCAP_SUPPORT_NETFILTER)
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-netfilter-linux.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-netfilter-linux.c)
     endif(PCAP_SUPPORT_NETFILTER)
 endif()
 
@@ -2346,7 +2343,7 @@ main(void)
 "
         PCAP_SUPPORT_NETMAP)
     if(PCAP_SUPPORT_NETMAP)
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-netmap.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-netmap.c)
     endif(PCAP_SUPPORT_NETMAP)
 endif()
 
@@ -2372,7 +2369,7 @@ if(NOT DISABLE_DPDK)
             set(LIBS "${LIBS} ${dpdk_LIBS}")
             set(LIBS_STATIC "${LIBS_STATIC} ${dpdk_LIBS_STATIC}")
             set(REQUIRES_PRIVATE "${REQUIRES_PRIVATE} ${dpdk_PACKAGE_NAME}")
-            set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-dpdk.c)
+            set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-dpdk.c)
             set(PCAP_SUPPORT_DPDK TRUE)
 
             #
@@ -2401,7 +2398,7 @@ if(NOT DISABLE_BLUETOOTH)
         check_include_file(bluetooth/bluetooth.h HAVE_BLUETOOTH_BLUETOOTH_H)
         if(HAVE_BLUETOOTH_BLUETOOTH_H)
             set(PCAP_SUPPORT_BT TRUE)
-            set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-bt-linux.c)
+            set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-bt-linux.c)
             #
             # OK, does struct sockaddr_hci have an hci_channel
             # member?
@@ -2418,7 +2415,7 @@ if(NOT DISABLE_BLUETOOTH)
 int
 main(void)
 {
-    int i = HCI_CHANNEL_MONITOR;
+    u_int i = HCI_CHANNEL_MONITOR;
     return 0;
 }
 "
@@ -2428,7 +2425,7 @@ main(void)
                    # Yes, so we can also support Bluetooth monitor
                    # sniffing.
                    #
-                   set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-bt-monitor-linux.c)
+                   set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-bt-monitor-linux.c)
                endif(PCAP_SUPPORT_BT_MONITOR)
             endif(HAVE_STRUCT_SOCKADDR_HCI_HCI_CHANNEL)
         endif(HAVE_BLUETOOTH_BLUETOOTH_H)
@@ -2450,7 +2447,7 @@ if(NOT DISABLE_DBUS)
     pkg_check_modules(DBUS dbus-1)
     if(DBUS_FOUND)
         set(PCAP_SUPPORT_DBUS TRUE)
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-dbus.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-dbus.c)
         include_directories(${DBUS_INCLUDE_DIRS})
 
         #
@@ -2538,7 +2535,7 @@ if(NOT DISABLE_RDMA)
         if(HAVE_INFINIBAND_VERBS_H)
             check_symbol_exists(ibv_create_flow infiniband/verbs.h PCAP_SUPPORT_RDMASNIFF)
             if(PCAP_SUPPORT_RDMASNIFF)
-                set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-rdmasniff.c)
+                set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-rdmasniff.c)
                 set(PCAP_LINK_LIBRARIES ${LIBIBVERBS_LIBRARIES} ${PCAP_LINK_LIBRARIES})
                 set(LIBS "${LIBIBVERBS_LIBS} ${LIBS}")
                 set(LIBS_STATIC "${LIBIBVERBS_LIBS_STATIC} ${LIBS_STATIC}")
@@ -2582,7 +2579,7 @@ if(NOT DISABLE_DAG)
         cmake_pop_check_state()
 
         include_directories(AFTER ${DAG_INCLUDE_DIRS})
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-dag.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-dag.c)
         set(HAVE_DAG_API TRUE)
         set(PCAP_LINK_LIBRARIES ${PCAP_LINK_LIBRARIES} ${DAG_LIBRARIES})
         set(LIBS "${LIBS} ${DAG_LIBS}")
@@ -2602,6 +2599,7 @@ if(NOT DISABLE_DAG)
     endif()
 endif()
 
+message(STATUS "SEPTEL: ${SEPTEL_ROOT}")
 # Check for Septel card support.
 set(PROJECT_EXTERNAL_OBJECT_LIST "")
 if(NOT DISABLE_SEPTEL)
@@ -2618,7 +2616,7 @@ if(NOT DISABLE_SEPTEL)
         # Yes.
         #
         include_directories(AFTER ${SEPTEL_INCLUDE_DIRS})
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-septel.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-septel.c)
         set(PROJECT_EXTERNAL_OBJECT_LIST ${PROJECT_EXTERNAL_OBJECT_LIST} "${SEPTEL_ROOT}/asciibin.o ${SEPTEL_ROOT}/bit2byte.o ${SEPTEL_ROOT}/confirm.o ${SEPTEL_ROOT}/fmtmsg.o ${SEPTEL_ROOT}/gct_unix.o ${SEPTEL_ROOT}/hqueue.o ${SEPTEL_ROOT}/ident.o ${SEPTEL_ROOT}/mem.o ${SEPTEL_ROOT}/pack.o ${SEPTEL_ROOT}/parse.o ${SEPTEL_ROOT}/pool.o ${SEPTEL_ROOT}/sdlsig.o ${SEPTEL_ROOT}/strtonum.o ${SEPTEL_ROOT}/timer.o ${SEPTEL_ROOT}/trace.o")
         set(HAVE_SEPTEL_API TRUE)
     endif()
@@ -2639,7 +2637,7 @@ if(NOT DISABLE_SNF)
         # Yes.
         #
         include_directories(AFTER ${SNF_INCLUDE_DIRS})
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-snf.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-snf.c)
         set(HAVE_SNF_API TRUE)
         set(PCAP_LINK_LIBRARIES ${PCAP_LINK_LIBRARIES} ${SNF_LIBRARIES})
         set(LIBS "${LIBS_STATIC} ${SNF_LIBS}")
@@ -2663,7 +2661,7 @@ if(NOT DISABLE_AIRPCAP)
         # Yes.
         #
         include_directories(AFTER ${AirPcap_INCLUDE_DIRS})
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-airpcap.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-airpcap.c)
         set(HAVE_AIRPCAP_API TRUE)
         set(PCAP_LINK_LIBRARIES ${PCAP_LINK_LIBRARIES} ${AirPcap_LIBRARIES})
     endif()
@@ -2684,7 +2682,7 @@ if(NOT DISABLE_TC)
         # Yes.
         #
         include_directories(AFTER ${TC_INCLUDE_DIRS})
-        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} pcap-tc.c)
+        set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C} ${pcap_SOURCE_DIR}/pcap-tc.c)
         set(HAVE_TC_API TRUE)
         set(PCAP_LINK_LIBRARIES ${PCAP_LINK_LIBRARIES} ${TC_LIBRARIES} ${CMAKE_USE_PTHREADS_INIT} stdc++)
     endif()
@@ -2707,12 +2705,12 @@ if(ENABLE_REMOTE)
     # the check.
     #
     cmake_push_check_state()
-    set(CMAKE_REQUIRED_INCLUDES ${CMAKE_CURRENT_SOURCE_DIR})
+    set(CMAKE_REQUIRED_INCLUDES ${CMAKE_LIBPCAP_SOURCE_DIR})
     check_struct_has_member("struct msghdr" msg_control "ftmacros.h;sys/socket.h" HAVE_STRUCT_MSGHDR_MSG_CONTROL)
     check_struct_has_member("struct msghdr" msg_flags "ftmacros.h;sys/socket.h" HAVE_STRUCT_MSGHDR_MSG_FLAGS)
     cmake_pop_check_state()
     set(PROJECT_SOURCE_LIST_C ${PROJECT_SOURCE_LIST_C}
-        pcap-rpcap.c rpcap-protocol.c sockutils.c sslutils.c)
+    ${pcap_SOURCE_DIR}/pcap-new.c ${pcap_SOURCE_DIR}/pcap-rpcap.c ${pcap_SOURCE_DIR}/rpcap-protocol.c ${pcap_SOURCE_DIR}/sockutils.c ${pcap_SOURCE_DIR}/sslutils.c)
 endif(ENABLE_REMOTE)
 
 ###################################################################
@@ -2722,7 +2720,7 @@ endif(ENABLE_REMOTE)
 #
 # Check and add warning options if we have a .devel file.
 #
-if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/.devel OR EXISTS ${CMAKE_BINARY_DIR}/.devel)
+if(EXISTS ${CMAKE_LIBPCAP_SOURCE_DIR}/.devel OR EXISTS ${CMAKE_BINARY_DIR}/.devel)
     #
     # Warning options.
     #
@@ -3001,6 +2999,8 @@ endif()
 
 message(STATUS "Parser generator: ${YACC_EXECUTABLE}")
 
+message(STATUS "PCAP BINARY: ${pcap_BINARY_DIR}")
+message(STATUS "PCAP BINARY: ${pcap_BINARY_DIR}")
 #
 # Create custom command for the scanner.
 #
@@ -3037,6 +3037,8 @@ set(MAN_FILE_FORMATS 5)
 set(MAN_MISC_INFO 7)
 set(MAN_ADMIN_COMMANDS 8)
 if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
+    # Workaround to enable certain features
+    set(_SUN TRUE)
     if(PCAP_TYPE STREQUAL "bpf")
         #
         # If we're using BPF, we need libodm and libcfg, as
@@ -3048,16 +3050,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "AIX")
         set(LIBS_PRIVATE "${LIBS_PRIVATE} -lodm -lcfg")
     endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
-    if(
-       CMAKE_SYSTEM_VERSION MATCHES "[A-Z.]*9\.[0-9]*"
-       OR CMAKE_SYSTEM_VERSION MATCHES "[A-Z.]*10\.[01]"
-    )
+    if(CMAKE_SYSTEM_VERSION MATCHES "[A-Z.]*9\.[0-9]*")
         #
         # HP-UX 9.x.
+        #
+        set(HAVE_HPUX9 TRUE)
+    elseif(CMAKE_SYSTEM_VERSION MATCHES "[A-Z.]*10\.0")
+        #
         # HP-UX 10.0.
+        #
+    elseif(CMAKE_SYSTEM_VERSION MATCHES "[A-Z.]*10\.1")
+        #
         # HP-UX 10.1.
         #
-        message(FATAL_ERROR \"HP-UX version must be 10.20 or later, not \${CMAKE_SYSTEM_VERSION}\")
     else()
         #
         # HP-UX 10.20 and later.
@@ -3071,6 +3076,24 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "HP-UX")
     set(MAN_ADMIN_COMMANDS 1m)
     set(MAN_FILE_FORMATS 4)
     set(MAN_MISC_INFO 5)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "IRIX" OR CMAKE_SYSTEM_NAME STREQUAL "IRIX64")
+    #
+    # Use IRIX conventions for man pages; they're the same as the
+    # System V conventions, except that they use section 8 for
+    # administrative commands and daemons.
+    #
+    set(MAN_FILE_FORMATS 4)
+    set(MAN_MISC_INFO 5)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "OSF1")
+    #
+    # DEC OSF/1, a/k/a Digital UNIX, a/k/a Tru64 UNIX.
+    # Use Tru64 UNIX conventions for man pages; they're the same as the
+    # System V conventions except that they use section 8 for
+    # administrative commands and daemons.
+    #
+    set(MAN_FILE_FORMATS 4)
+    set(MAN_MISC_INFO 5)
+    set(MAN_DEVICES 7)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "SunOS" AND CMAKE_SYSTEM_VERSION MATCHES "5[.][0-9.]*")
     #
     # SunOS 5.x.
@@ -3120,7 +3143,7 @@ endif(WIN32)
 if(ENABLE_REMOTE)
     add_subdirectory(rpcapd)
 endif(ENABLE_REMOTE)
-add_subdirectory(testprogs)
+add_subdirectory(${CMAKE_LIBPCAP_SOURCE_DIR}/testprogs)
 
 ######################################
 # Register targets
@@ -3133,6 +3156,7 @@ add_subdirectory(testprogs)
 #
 #  https://public.kitware.com/pipermail/cmake/2013-August/055510.html
 #
+message(STATUS "binaries ${CMAKE_CURRENT_BINARY_DIR}")
 add_custom_target(SerializeTarget
     DEPENDS
     ${CMAKE_CURRENT_BINARY_DIR}/grammar.c
@@ -3150,7 +3174,7 @@ if(BUILD_SHARED_LIBS)
         ${PROJECT_EXTERNAL_OBJECT_LIST}
     )
     target_include_directories(${LIBRARY_NAME} PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+        $<BUILD_INTERFACE:${CMAKE_LIBPCAP_SOURCE_DIR}>
         $<INSTALL_INTERFACE:include>
     )
     add_dependencies(${LIBRARY_NAME} SerializeTarget)
@@ -3179,7 +3203,7 @@ add_library(${LIBRARY_NAME}_static STATIC
     ${PROJECT_EXTERNAL_OBJECT_LIST}
 )
 target_include_directories(${LIBRARY_NAME}_static PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${CMAKE_LIBPCAP_SOURCE_DIR}>
     $<INSTALL_INTERFACE:include>
 )
 add_dependencies(${LIBRARY_NAME}_static SerializeTarget)
@@ -3272,13 +3296,13 @@ endif()
 # Write out the config.h file
 ######################################
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cmakeconfig.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/cmakeconfig.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
 ######################################
 # Write out the grammar.y file
 ######################################
 
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/grammar.y.in ${CMAKE_CURRENT_BINARY_DIR}/grammar.y @ONLY)
+configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/grammar.y.in ${CMAKE_CURRENT_BINARY_DIR}/grammar.y @ONLY)
 
 ######################################
 # Install pcap library, include files, and man pages
@@ -3387,7 +3411,6 @@ set(MAN3PCAP_NOEXPAND
     pcap_tstamp_type_val_to_name.3pcap
 )
 set(MANFILE_EXPAND
-    cbpf-savefile.manfile.in
     pcap-savefile.manfile.in
 )
 set(MANMISC_EXPAND
@@ -3448,10 +3471,10 @@ else(WIN32 OR CYGWIN OR MSYS)
     install(TARGETS ${LIBRARIES_TO_INSTALL} DESTINATION ${CMAKE_INSTALL_LIBDIR})
 endif(WIN32 OR CYGWIN OR MSYS)
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/pcap/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/pcap)
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pcap.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pcap-bpf.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/pcap-namedb.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(DIRECTORY ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/pcap)
+install(FILES ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap-bpf.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES ${CMAKE_LIBPCAP_SOURCE_DIR}/pcap-namedb.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 # On UN*X, and on Windows when not using MSVC, generate libpcap.pc and
 # pcap-config and process man pages and arrange that they be installed.
@@ -3485,6 +3508,12 @@ if(NOT MSVC)
     # default, added to the run-time search path, so we don't need to
     # supply them.
     #
+    # For Tru64 UNIX, "-rpath" works with DEC's^WCompaq's^WHP's C
+    # compiler for Alpha, but isn't documented as working with GCC, and
+    # no GCC-compatible option is documented as working with the DEC
+    # compiler.  If anybody needs this on Tru64/Alpha, they're welcome
+    # to figure out a way to make it work.
+    #
     # This must *not* depend on the compiler, as, on platforms where
     # there's a GCC-compatible compiler and a vendor compiler, we need
     # to work with both.
@@ -3517,8 +3546,8 @@ if(NOT MSVC)
             set(RPATH "")
         endif()
     endif()
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/pcap-config.in ${CMAKE_CURRENT_BINARY_DIR}/pcap-config @ONLY)
-    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/libpcap.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libpcap.pc @ONLY)
+    configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/pcap-config.in ${CMAKE_CURRENT_BINARY_DIR}/pcap-config @ONLY)
+    configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/libpcap.pc.in ${CMAKE_CURRENT_BINARY_DIR}/libpcap.pc @ONLY)
     install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/pcap-config DESTINATION bin)
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libpcap.pc DESTINATION lib/pkgconfig)
 
@@ -3538,17 +3567,17 @@ if(NOT MSVC)
     if(UNIX OR (MINGW AND LINK_EXECUTABLE))
         set(MAN1 "")
         foreach(MANPAGE ${MAN1_NOEXPAND})
-            set(MAN1 ${MAN1} ${CMAKE_CURRENT_SOURCE_DIR}/${MANPAGE})
+            set(MAN1 ${MAN1} ${CMAKE_LIBPCAP_SOURCE_DIR}/${MANPAGE})
         endforeach(MANPAGE)
         install(FILES ${MAN1} DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 
         set(MAN3PCAP "")
         foreach(MANPAGE ${MAN3PCAP_NOEXPAND})
-            set(MAN3PCAP ${MAN3PCAP} ${CMAKE_CURRENT_SOURCE_DIR}/${MANPAGE})
+            set(MAN3PCAP ${MAN3PCAP} ${CMAKE_LIBPCAP_SOURCE_DIR}/${MANPAGE})
         endforeach(MANPAGE)
         foreach(TEMPLATE_MANPAGE ${MAN3PCAP_EXPAND})
             string(REPLACE ".in" "" MANPAGE ${TEMPLATE_MANPAGE})
-            configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_MANPAGE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE} @ONLY)
+            configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/${TEMPLATE_MANPAGE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE} @ONLY)
             set(MAN3PCAP ${MAN3PCAP} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE})
         endforeach(TEMPLATE_MANPAGE)
         install(FILES ${MAN3PCAP} DESTINATION ${CMAKE_INSTALL_MANDIR}/man3)
@@ -3573,7 +3602,7 @@ if(NOT MSVC)
         set(MANFILE "")
         foreach(TEMPLATE_MANPAGE ${MANFILE_EXPAND})
             string(REPLACE ".manfile.in" ".${MAN_FILE_FORMATS}" MANPAGE ${TEMPLATE_MANPAGE})
-            configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_MANPAGE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE} @ONLY)
+            configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/${TEMPLATE_MANPAGE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE} @ONLY)
             set(MANFILE ${MANFILE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE})
         endforeach(TEMPLATE_MANPAGE)
         install(FILES ${MANFILE} DESTINATION ${CMAKE_INSTALL_MANDIR}/man${MAN_FILE_FORMATS})
@@ -3581,7 +3610,7 @@ if(NOT MSVC)
         set(MANMISC "")
         foreach(TEMPLATE_MANPAGE ${MANMISC_EXPAND})
             string(REPLACE ".manmisc.in" ".${MAN_MISC_INFO}" MANPAGE ${TEMPLATE_MANPAGE})
-            configure_file(${CMAKE_CURRENT_SOURCE_DIR}/${TEMPLATE_MANPAGE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE} @ONLY)
+            configure_file(${CMAKE_LIBPCAP_SOURCE_DIR}/${TEMPLATE_MANPAGE} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE} @ONLY)
             set(MANMISC ${MANMISC} ${CMAKE_CURRENT_BINARY_DIR}/${MANPAGE})
         endforeach(TEMPLATE_MANPAGE)
         install(FILES ${MANMISC} DESTINATION ${CMAKE_INSTALL_MANDIR}/man${MAN_MISC_INFO})
@@ -3590,7 +3619,7 @@ endif(NOT MSVC)
 
 # uninstall target
 configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake_uninstall.cmake.in"
+    "${CMAKE_LIBPCAP_SOURCE_DIR}/cmake_uninstall.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
     IMMEDIATE @ONLY)
 
